@@ -42,6 +42,11 @@ userappPassportStrategy(passport);
 adminPassportStrategy(passport);
 googlePassportStrategy(passport);
 
+app.get("/", (req, res) => {
+  res.send("<h1>Welcome to the doctor finder backend!</h1>");
+});
+
+
 if (process.env.NODE_ENV !== 'test') {
     app.listen(port, () => {
       console.log(`your application is running on ${port}`);
