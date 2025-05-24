@@ -1,5 +1,6 @@
  const Doctor = require('../../model/doctor');
 const dbService = require('../../utils/dbServices');
+const { validateParamsWithJoi } = require('../../utils/validateRequest');
 const doctorSchemaKey = require('../../utils/validation/doctorValidation');
 const ObjectId = require('mongodb').ObjectId;
 
@@ -138,7 +139,7 @@ const findAllDoctor = async (req, res) => {
    try {
       let options = {};
       let query = {};
-      let validateRequest = validation.validateFilterWithJoi(
+      let validateRequest = validateParamsWithJoi(
         req.body,
         doctorSchemaKey.findFilterKeys,
         Doctor.schema.obj

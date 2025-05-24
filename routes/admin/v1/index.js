@@ -7,6 +7,7 @@ const express = require("express");
 const router = express.Router();
 
 router.use('/admin/user',require('./userRoutes'));
+router.use('/admin/auth',require('./authRoutes'));
 router.use('/admin/doctor',require('./doctorRoutes'));
 
 

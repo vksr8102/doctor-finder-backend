@@ -8,6 +8,8 @@ const router = express.Router();
 
 router.use('/userapp/auth', require("./auth"));
 router.use('/userapp/user',require('./userRoutes'));
+router.use('/userapp/doctor',require('./doctorRoutes'));
+router.use('/userapp/appointment',require('./AppointmentRoutes'));
 
 
 

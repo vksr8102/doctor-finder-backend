@@ -1,25 +1,70 @@
-const Appointment = require('../../model/appointment');
-const dbService = require('../../utils/dbServices');
-const appointmentSchemaKey = require('../../utils/validation/appointmentValidation');
-const validation = require('../../utils/validateRequest');
+const Appointment = require('../../../model/appointment');
+const dbService = require('../../../utils/dbServices');
+const appointmentSchemaKey = require('../../../utils/validation/appointmentValidation');
+const validation = require('../../../utils/validateRequest');
 const ObjectId = require('mongodb').ObjectId;
 
 
+
 /**
- * Create Appointment
+ * @description : create document of Appointment in mongodb collection.
+ * @param {Object} req : request including body for creating document.
+ * @param {Object} res : response of created document
+ * @return {Object} : created Appointment. {status, message, data}
  */
 const createAppointment = async (req, res) => {
   try {
-    let validateRequest = validation.validateParamsWithJoi(req.body, appointmentSchemaKey.createSchemaKeys);
+    const validateRequest = validation.validateParamsWithJoi(
+      req.body, 
+      appointmentSchemaKey.schemaKeys
+    );
+    
     if (!validateRequest.isValid) {
       return res.validationError({ message: validateRequest.message });
     }
 
-    let dataToCreate = { ...req.body, createdBy: req.user.id };
-    let result = await dbService.create(Appointment, dataToCreate);
-    return res.success({ data: result, message: 'Appointment created successfully' });
+    const { doctorId, appointmentDate } = req.body;
+    const isAvailable = await Appointment.checkAvailability(
+      doctorId,
+      req.user.id,
+      appointmentDate
+    );
+
+    if (!isAvailable) {
+      return res.BadRequest({ 
+        message: 'Either the slot is already booked or not available' 
+      });
+    }
+
+   
+    if (new Date(appointmentDate) <= new Date()) {
+      return res.validationError({ 
+        message: 'Appointment date must be in the future' 
+      });
+    }
+
+  
+    const dataToCreate = { 
+      ...req.body,
+       patientId:req.user.id,
+      createdBy: req.user.id,
+      isActive: true,
+      isDeleted: false
+    };
+
+    const result = await dbService.create(Appointment, dataToCreate);
+
+    return res.success({ 
+      data: result, 
+      message: 'Appointment booked successfully' 
+    });
+
   } catch (error) {
-    return res.internalServerError({ message: error.message });
+   
+    
+    return res.internalServerError({ 
+      message: 'Failed to book appointment. Please try again later.' 
+    });
   }
 };
 
