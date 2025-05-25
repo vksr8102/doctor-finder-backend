@@ -28,7 +28,7 @@ const register = async (req,res) =>{
       if (!email && !phone) {
         return res.badRequest({ message: 'Insufficient request parameters! email or phone  is required.' });
       }
-     console.log("req.body",req.body);
+   
       // validation  
       let validateRequest = validation.validateParamsWithJoi(
         req.body,
@@ -57,13 +57,7 @@ const register = async (req,res) =>{
         return res.validationError({ message : `${checkUniqueFields.value} already exists.Unique ${checkUniqueFields.field} are allowed.` });
       }
     }
-    // create user
-      const result = await dbService.create(User,data);
-      if ( req.body.email) {
-        await authService.sendWelcomeRegisterByEmail({
-         ...req.body
-        });
-      }
+   
 
       return res.success({ data :result });
     } catch (error) {

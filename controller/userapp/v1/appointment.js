@@ -15,23 +15,24 @@ const ObjectId = require('mongodb').ObjectId;
 const createAppointment = async (req, res) => {
   try {
     const validateRequest = validation.validateParamsWithJoi(
-      req.body, 
+     { ...req.body, patientId:req.user.id.toString()}, 
       appointmentSchemaKey.schemaKeys
     );
-    
+    console.log(req.user.id,"user")
     if (!validateRequest.isValid) {
       return res.validationError({ message: validateRequest.message });
     }
 
-    const { doctorId, appointmentDate } = req.body;
+    const { doctorId, appointmentDate,  startTime,endTime } = req.body;
     const isAvailable = await Appointment.checkAvailability(
-      doctorId,
-      req.user.id,
-      appointmentDate
-    );
+  doctorId,
+  appointmentDate,
+  startTime,
+  endTime
+)
 
     if (!isAvailable) {
-      return res.BadRequest({ 
+      return res.badRequest({ 
         message: 'Either the slot is already booked or not available' 
       });
     }
@@ -46,7 +47,7 @@ const createAppointment = async (req, res) => {
   
     const dataToCreate = { 
       ...req.body,
-       patientId:req.user.id,
+       patientId:req.user.id.toString(),
       createdBy: req.user.id,
       isActive: true,
       isDeleted: false
@@ -61,9 +62,9 @@ const createAppointment = async (req, res) => {
 
   } catch (error) {
    
-    
+  
     return res.internalServerError({ 
-      message: 'Failed to book appointment. Please try again later.' 
+      message:error.message 
     });
   }
 };
@@ -149,41 +150,36 @@ const deleteAppointment = async (req, res) => {
  * @return {Object} : found Appointment(s). {status, message, data}
  */
 const findAllAppointment = async (req, res) => {
-  try {
-    let query = {};
-    let options = {};
-
-    let validateRequest = validation.validateFilterWithJoi(
-      req.body,
-      appointmentSchemaKey.findFilterKeys,
-      Appointment.schema.obj
-    );
-    if (!validateRequest.isValid) {
-      return res.validationError({ message: validateRequest.message });
-    }
-
-    if (typeof req.body.query === 'object' && req.body.query !== null) {
-      query = { ...req.body.query, isDeleted: false };
-    }
-
-    if (req.body.isCountOnly) {
-      const totalRecords = await dbService.count(Appointment, query);
-      return res.success({ data: { totalRecords } });
-    }
-
-    if (typeof req.body.options === 'object' && req.body.options !== null) {
-      options = { ...req.body.options, populate: ['doctorId', 'patientId'] };
-    }
- query.userId = req.user.id;
-    const result = await dbService.paginate(Appointment, query, options);
-    if (!result || !result.data.length) {
-      return res.recordNotFound();
-    }
-
-    return res.success({ data: result });
-  } catch (error) {
-    return res.internalServerError({ message: error.message });
-  }
+   try {
+        let options = {};
+        let query = {};
+        let validateRequest = validation.validateParamsWithJoi(
+          req.body,
+          appointmentSchemaKey.findFilterKeys,
+          Appointment.schema.obj
+        );
+        if (!validateRequest.isValid) {
+          return res.validationError({ message: `${validateRequest.message}` });
+        }
+        if (typeof req.body.query === 'object' && req.body.query !== null) {
+          query = { ...req.body.query };
+        }
+        if (req.body.isCountOnly){
+          let totalRecords = await dbService.count(Appointment, query);
+          return res.success({ data: { totalRecords } });
+        }
+        if (req.body && typeof req.body.options === 'object' && req.body.options !== null) {
+          options = { ...req.body.options };
+        }
+        query.patientId = req.user.id;
+        let foundAppointment = await dbService.paginate(Appointment,query,options);
+        if (!foundAppointment || !foundAppointment.data || !foundAppointment.data.length){
+          return res.recordNotFound(); 
+        }
+        return res.success({ data :foundAppointment });
+      } catch (error){
+        return res.internalServerError({ message:error.message });
+      }
 };
 
 

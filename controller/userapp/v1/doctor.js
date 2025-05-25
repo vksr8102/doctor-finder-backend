@@ -73,9 +73,38 @@ const findAllDoctor = async (req, res) => {
 };
 
 
+/**
+ * @description : Get a list of unique specializations from Doctor .
+
+ * @param {Object} res : response contains list of unique specializations.
+ * @return {Object} : list of specializations. {status, message, data}
+ */
+
+const getListOfSpecializations = async (req, res) => {
+  try {
+    const result = await Doctor.aggregate([
+      { $group: { _id: "$specialization" } },
+      { $project: { _id: 0, specialization: "$_id" } }
+    ]);
+
+    const specializations = result.map(item => item.specialization);
+
+    if (!specializations || !specializations.length) {
+      return res.recordNotFound({ message: 'No specializations found.' });
+    }
+    return res.success({ data :specializations });
+  } catch (error) {
+    console.error('Error in getUniqueSpecializations:', error);
+    return res.internalServerError({ message:error.message });
+  }
+};
+
+
+
 module.exports = {
 
 getDoctor,
 findAllDoctor,
+getListOfSpecializations
 
 };

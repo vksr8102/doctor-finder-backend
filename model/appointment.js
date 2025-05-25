@@ -29,9 +29,10 @@ const appointmentSchema = new Schema({
     type: Schema.Types.ObjectId, 
     ref: "user", 
   },
-  date: { 
-    type: Date
-  },
+ appointmentDate: {
+  type: Date
+}
+,
   startTime: { 
     type: String
   },
@@ -78,7 +79,6 @@ const appointmentSchema = new Schema({
 appointmentSchema.pre('save', async function(next) {
   const appointment = this;
 
-
   const timeToMinutes = (timeStr) => {
     const [time, period] = timeStr.split(' ');
     let [hours, minutes] = time.split(':').map(Number);
@@ -90,25 +90,20 @@ appointmentSchema.pre('save', async function(next) {
   const newStart = timeToMinutes(appointment.startTime);
   const newEnd = timeToMinutes(appointment.endTime);
 
-
-  const overlappingAppointment = await mongoose.model("appointment").findOne({
+  const existingAppointments = await mongoose.model("appointment").find({
     doctorId: appointment.doctorId,
-    date: appointment.date,
+    appointmentDate: appointment.appointmentDate,
     status: { $ne: "Cancelled" },
-    _id: { $ne: appointment._id },
-    $or: [
-      { 
-        $expr: { 
-          $and: [
-            { $lte: [{ $toInt: { $substr: ["$startTime", 0, 2] } }, newEnd] },
-            { $gte: [{ $toInt: { $substr: ["$endTime", 0, 2] } }, newStart] }
-          ]
-        }
-      }
-    ]
+    _id: { $ne: appointment._id }
   });
 
-  if (overlappingAppointment) {
+  const hasOverlap = existingAppointments.some(existing => {
+    const existingStart = timeToMinutes(existing.startTime);
+    const existingEnd = timeToMinutes(existing.endTime);
+    return newStart < existingEnd && newEnd > existingStart;
+  });
+
+  if (hasOverlap) {
     const err = new Error('Time slot already booked or overlapping with another appointment');
     return next(err);
   }
@@ -117,15 +112,16 @@ appointmentSchema.pre('save', async function(next) {
 });
 
 
+
 appointmentSchema.virtual('timeSlot').get(function() {
   return `${this.startTime} - ${this.endTime}`;
 });
 
 
-appointmentSchema.statics.checkAvailability = async function(doctorId, date, startTime, endTime, excludeId = null) {
+appointmentSchema.statics.checkAvailability = async function(doctorId, appointmentDate, startTime, endTime, excludeId = null) {
   const query = {
     doctorId,
-    date,
+     appointmentDate,
     status: { $ne: "Cancelled" },
     $or: [
       { startTime: { $lt: endTime }, endTime: { $gt: startTime } }
