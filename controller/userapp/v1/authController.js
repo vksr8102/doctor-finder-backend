@@ -58,7 +58,7 @@ const register = async (req,res) =>{
       }
     }
    
-
+   const result = await dbService.create(User,data);
       return res.success({ data :result });
     } catch (error) {
       return res.internalServerError({ data:error.message });
