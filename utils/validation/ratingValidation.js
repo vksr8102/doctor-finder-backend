@@ -4,8 +4,8 @@ const {
 } = require('./comonFilterValidation');
 
 exports.schemaKeys = joi.object({
-  doctorId: joi.string().regex(/^[0-9a-fA-F]{24}$/).required(),
-  appointmentId: joi.string().regex(/^[0-9a-fA-F]{24}$/).required(),
+  doctorId: joi.string().regex(/^[0-9a-fA-F]{24}$/),
+  appointmentId: joi.string().regex(/^[0-9a-fA-F]{24}$/),
   ratingValue: joi.number().min(1).max(5).required(),
   isActive: joi.boolean(),
   isDeleted: joi.boolean()

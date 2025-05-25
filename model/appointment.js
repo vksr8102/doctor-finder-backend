@@ -5,7 +5,6 @@ const uniqueValidator = require("mongoose-unique-validator");
 
 const Schema = mongoose.Schema;
 
-
 const myCustomLabels = {
   totalDocs: 'itemCount',
   docs: 'data',
@@ -19,7 +18,6 @@ const myCustomLabels = {
 };
 mongoosePaginate.paginate.options = { customLabels: myCustomLabels };
 
-
 const appointmentSchema = new Schema({
   doctorId: { 
     type: Schema.Types.ObjectId, 
@@ -29,10 +27,9 @@ const appointmentSchema = new Schema({
     type: Schema.Types.ObjectId, 
     ref: "user", 
   },
- appointmentDate: {
-  type: Date
-}
-,
+  appointmentDate: {
+    type: Date
+  },
   startTime: { 
     type: String
   },
@@ -75,17 +72,18 @@ const appointmentSchema = new Schema({
   toObject: { virtuals: true }
 });
 
+// Helper function to convert "hh:mm AM/PM" -> minutes
+const timeToMinutes = (timeStr) => {
+  const [time, period] = timeStr.split(' ');
+  let [hours, minutes] = time.split(':').map(Number);
+  if (period === 'PM' && hours !== 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+};
 
+// Pre-save check for overlapping appointments
 appointmentSchema.pre('save', async function(next) {
   const appointment = this;
-
-  const timeToMinutes = (timeStr) => {
-    const [time, period] = timeStr.split(' ');
-    let [hours, minutes] = time.split(':').map(Number);
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    return hours * 60 + minutes;
-  };
 
   const newStart = timeToMinutes(appointment.startTime);
   const newEnd = timeToMinutes(appointment.endTime);
@@ -112,7 +110,6 @@ appointmentSchema.pre('save', async function(next) {
 });
 
 
-
 appointmentSchema.virtual('timeSlot').get(function() {
   return `${this.startTime} - ${this.endTime}`;
 });
@@ -121,7 +118,7 @@ appointmentSchema.virtual('timeSlot').get(function() {
 appointmentSchema.statics.checkAvailability = async function(doctorId, appointmentDate, startTime, endTime, excludeId = null) {
   const query = {
     doctorId,
-     appointmentDate,
+    appointmentDate,
     status: { $ne: "Cancelled" },
     $or: [
       { startTime: { $lt: endTime }, endTime: { $gt: startTime } }
@@ -132,6 +129,36 @@ appointmentSchema.statics.checkAvailability = async function(doctorId, appointme
 
   const existing = await this.findOne(query);
   return !existing;
+};
+
+// Static method to update expired appointments
+appointmentSchema.statics.updateExpiredAppointments = async function () {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const today = new Date(now.toISOString().split('T')[0]);
+
+  const appointments = await this.find({
+    appointmentDate: { $lte: today },
+    status: { $in: ['Scheduled', 'Rescheduled'] },
+    isDeleted: false,
+  });
+
+  const updates = [];
+
+  for (const appt of appointments) {
+    const apptDate = new Date(appt.appointmentDate);
+    const apptEndMinutes = timeToMinutes(appt.endTime);
+
+    if (
+      apptDate < today || 
+      (apptDate.getTime() === today.getTime() && apptEndMinutes <= currentMinutes)
+    ) {
+      updates.push(this.updateOne({ _id: appt._id }, { $set: { status: 'Completed' } }));
+    }
+  }
+
+  await Promise.all(updates);
 };
 
 
